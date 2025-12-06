@@ -1,0 +1,81 @@
+#include <WiFi.h>
+#include <ArduinoJson.h>
+
+const char* ssid = "Wokwi-GUEST";
+const char* password = "";
+
+const char* host = "api.openweathermap.org";
+const char* request = "/data/2.5/weather?lat=10.7625269&lon=106.6797513&units=metric&appid=a96e107f35581ef9317be3d1ca3ffba6";
+const int port = 80;
+
+void sendHttpRequest() {
+  WiFiClient client;
+  if (!client.connect(host, port)) {
+    Serial.println("Connection failed");
+    return;
+  }
+
+  // Send GET request (change to POST if needed)
+  client.print(String("GET ") + request + " HTTP/1.1\r\n" +
+               "Host: " + host + "\r\n" +
+               "Connection: close\r\n\r\n");
+
+  // Read the full HTTP response
+  String response = "";
+  while (client.connected() || client.available()) {
+    response += client.readString();
+  }
+
+  // Find start of JSON body
+  int jsonStart = response.indexOf('{');
+  if (jsonStart == -1) {
+    Serial.println("No JSON body found!");
+    return;
+  }
+
+  // Extract the JSON body
+  String json = response.substring(jsonStart);
+
+  Serial.println("Raw JSON:");
+  Serial.println(json);
+
+  // Parse JSON
+  DynamicJsonDocument doc(2048);
+  DeserializationError error = deserializeJson(doc, json);
+  if (error) {
+    Serial.print("deserializeJson() failed: ");
+    Serial.println(error.f_str());
+    return;
+  }
+
+  float temp = doc["main"]["temp"];
+  const char* desc = doc["weather"][0]["description"];
+
+  Serial.print("Temperature: ");
+  Serial.print(temp);
+  Serial.println(" °C");
+
+  Serial.print("Weather: ");
+  Serial.println(desc);
+}
+
+
+void wifiConnect() {
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println(" Connected");
+}
+
+void setup() {
+  Serial.begin(115200);
+  Serial.println("Connecting to WiFi...");
+  wifiConnect();
+  sendHttpRequest();
+}
+
+void loop() {
+  // Do nothing
+}

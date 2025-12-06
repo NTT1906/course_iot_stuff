@@ -1,0 +1,82 @@
+#include <WiFi.h>
+
+const char* ssid = "Wokwi-GUEST";
+const char* password = "";
+
+// Pushsafer API host
+const char* host = "www.pushsafer.com";
+const int port = 80;
+
+// Replace with your Pushsafer private key
+const char* pushsaferKey = "your_private_key"; 
+
+String urlencode(String str) {
+  String encoded = "";
+  char c;
+  char code0;
+  char code1;
+  char code2;
+  for (int i = 0; i < str.length(); i++) {
+    c = str.charAt(i);
+    if (isalnum(c)) {
+      encoded += c;
+    } else {
+      code1 = (c >> 4) & 0xF;
+      code2 = c & 0xF;
+      code0 = '%';
+      encoded += code0;
+      encoded += "0123456789ABCDEF"[code1];
+      encoded += "0123456789ABCDEF"[code2];
+    }
+  }
+  return encoded;
+}
+
+void sendHttpRequest() {
+  WiFiClient client;
+  while (!client.connect(host, port)) {
+    Serial.println("Connection fail");
+    delay(1000);
+  }
+
+  String title = "ESP32 Alert";
+  String message = "The device is working from Wokwi!";
+
+  String postData = "k=" + String(pushsaferKey) +
+                  "&t=" + urlencode(title) +
+                  "&m=" + urlencode(message);
+
+  client.print("POST /api HTTP/1.1\r\n");
+  client.print("Host: " + String(host) + "\r\n");
+  client.print("Content-Type: application/x-www-form-urlencoded\r\n");
+  client.print("Content-Length: " + String(postData.length()) + "\r\n");
+  client.print("Connection: close\r\n\r\n");
+  client.print(postData);
+
+  delay(500);
+
+  while (client.available()) {
+    String line = client.readStringUntil('\r');
+    Serial.print(line);
+  }
+}
+
+void wifiConnect() {
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println(" Connected");
+}
+
+void setup() {
+  Serial.begin(115200);
+  Serial.println("Connecting to WiFi");
+  wifiConnect();
+  sendHttpRequest();
+}
+
+void loop() {
+  delay(1000);
+}
